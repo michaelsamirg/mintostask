@@ -62,6 +62,8 @@ public class WeatherSerivce {
 			
 			String ip = data[0];
 			
+			message += "You IP Address = " + ip;
+			
 			//2- get location 
 			jsonObj = createConnection(API_URL_LOCATION, data);
 			//2.a- read data
@@ -78,7 +80,7 @@ public class WeatherSerivce {
 			//Add country + City
 			if(data.length == 4)
 			{
-				message = "Country = " + data[2] + " - City = " + data[3] + "<br/>";
+				message += "<br/>Country = " + data[2] + " - City = " + data[3] + "<br/>";
 				country = data[2];
 				city = data[3];
 			}
