@@ -7,11 +7,11 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import org.assertj.core.util.Arrays;
+import javax.transaction.Transactional;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -20,12 +20,20 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
+import com.mintos.weather.task.dao.WeatherHistoryDao;
+import com.mintos.weather.task.enums.TempUnitEnum;
+import com.mintos.weather.task.model.WeatherHistoryBE;
+import com.mintos.weather.task.util.Util;
+
 @Service
 @PropertySource(ignoreResourceNotFound = true, value = "classpath:application.properties")
 public class WeatherSerivce {
 	
 	@Autowired
     private Environment env;
+	
+	@Autowired
+	private WeatherHistoryDao weatherHistoryDao;
 	
 	private final String API_URL_IP = "api.url.ip";
 	private final String API_URL_LOCATION = "api.url.location";
@@ -51,15 +59,28 @@ public class WeatherSerivce {
 			JSONObject jsonObj = createConnection(API_URL_IP, null);
 			//2.a- read data
 			String[] data = retreiveData(API_URL_IP, jsonObj);
+			
+			String ip = data[0];
+			
 			//2- get location 
 			jsonObj = createConnection(API_URL_LOCATION, data);
 			//2.a- read data
 			data = retreiveData(API_URL_LOCATION, jsonObj);
 			
+			String country ="";
+			String city = "";
+			String lat = "";
+			String lon = "";
+			
+			lat = data[0];
+			lon = data[1];
+			
 			//Add country + City
 			if(data.length == 4)
 			{
 				message = "Country = " + data[2] + " - City = " + data[3] + "<br/>";
+				country = data[2];
+				city = data[3];
 			}
 			
 			//3- get weather
@@ -67,10 +88,12 @@ public class WeatherSerivce {
 			//2.a- read data
 			data = retreiveData(API_URL_WEATHER, jsonObj);
 			
+			double temp = 0.0;
+			String tempUnit = env.getProperty(API_URL_WEATHER +  "." + TEMP_UNIT);
 			try {
-				double temp = Double.parseDouble(data[0]);
+				temp = Double.parseDouble(data[0]);
 				
-				if(env.getProperty(API_URL_WEATHER +  "." + TEMP_UNIT).equalsIgnoreCase("c"))
+				if(tempUnit.equalsIgnoreCase(TempUnitEnum.UINT_C.name()))
 				{
 					message += "Temprature in C = " + Math.round(temp);
 					message += "<br>Temprature in F = " + Math.round(convertToF(temp));
@@ -84,7 +107,15 @@ public class WeatherSerivce {
 			} catch (NumberFormatException e) {
 				message = "Temperature value is invalid!!";
 			}
-		} catch (Exception e) {
+			
+			saveNewHistory(ip, city, country, lat, lon, temp, tempUnit);
+			
+		} 
+		catch(RuntimeException e)
+		{
+			message = e.getMessage();
+		}
+		catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 			message = "Something went wrong!";
@@ -94,7 +125,7 @@ public class WeatherSerivce {
 		return message;
 	}
 	
-	private JSONObject createConnection(String api, String[] parameters)
+	private JSONObject createConnection(String api, String[] parameters) throws RuntimeException
 	{
 		String urlStr = prepareURL(api, parameters);
 		
@@ -200,9 +231,6 @@ public class WeatherSerivce {
 	{
 		List<String> data = new ArrayList<String>();
 		
-		Pattern p = Pattern.compile("\\d");
-		Matcher m; 
-		
 		//Get respose key
 		String[] parameterKeys = env.getProperty(api +  "." + API_RESPONSE_KEYS).split(",");
 		
@@ -212,10 +240,9 @@ public class WeatherSerivce {
 			
 			Object currentObj = jsonObj;
 			for (int j = 0; j < keyPath.length; j++) {
-				m = p.matcher(keyPath[j]);
 				
 				//check jsonarray
-				if(m.matches())
+				if(Util.validateJsonArrayParam(keyPath[j]))
 				{
 					JSONArray array = ((JSONArray)currentObj);
 					try {
@@ -257,12 +284,33 @@ public class WeatherSerivce {
 	private double convertToC(double c)
 	{
 		return (c - 32.0) * 5.0/9.0;
-
 	}
 	
 	private double convertToF(double f)
 	{
 		return (f * 9.0/5.0) + 32.0;
-
+	}
+	
+	@Transactional
+	private void saveNewHistory(String ip, String city, String country, String lat, String lon, double temp, String tempUnit) {
+		
+		WeatherHistoryBE weatherHistory = new WeatherHistoryBE(ip, city, country, lat, lon, temp, tempUnit);
+		
+		weatherHistoryDao.save(weatherHistory);
+	}
+	
+	public List<WeatherHistoryBE> findByIP(String ip)
+	{
+		return weatherHistoryDao.findByIP(ip);
+	}
+	
+	public List<WeatherHistoryBE> findByDateRange(Date fromDate, Date toDate)
+	{
+		return weatherHistoryDao.findByDateRange(fromDate, toDate);
+	}
+	
+	public List<WeatherHistoryBE> findHistoryAll()
+	{
+		return weatherHistoryDao.findAll();
 	}
 }
