@@ -19,6 +19,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter
          .httpBasic();
     }
  
+    // Set basic authentication with user-name and password
     @Autowired
     public void configureGlobal(AuthenticationManagerBuilder auth) 
             throws Exception 

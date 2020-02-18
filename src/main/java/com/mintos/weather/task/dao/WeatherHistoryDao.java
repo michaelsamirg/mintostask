@@ -16,9 +16,11 @@ import com.mintos.weather.task.model.WeatherHistoryBE;
 @Transactional
 public interface WeatherHistoryDao extends JpaRepository<WeatherHistoryBE, Long> {
 	
+	// Retrieve weather history by IP ddess
 	@Query("SELECT w FROM Weather_History w WHERE 1=1 and (:ip is null or w.ip=:ip)")
 	List<WeatherHistoryBE> findByIP(@Param("ip") String ip);
 	
+	// Retrieve weather history by date range
 	@Query("SELECT w FROM Weather_History w WHERE 1=1 and (:fromDate is null or w.date >= :fromDate) "
 			+ " and (:toDate is null or w.date <= :toDate)")
 	List<WeatherHistoryBE> findByDateRange(@Param("fromDate") Date fromDate, @Param("toDate") Date toDate);

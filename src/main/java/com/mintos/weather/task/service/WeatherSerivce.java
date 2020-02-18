@@ -37,10 +37,12 @@ public class WeatherSerivce {
 	@Autowired
 	private WeatherHistoryDao weatherHistoryDao;
 	
+	// Retrieve URLs for APIs
 	private final String API_URL_IP = "api.url.ip";
 	private final String API_URL_LOCATION = "api.url.location";
 	private final String API_URL_WEATHER = "api.url.weather";
 	
+	// Define constant variables for resource file
 	private final String API_PARAM_KEYS = "parameters.keys";
 	private final String API_PARAM_VALUES = "parameters.values";
 	private final String API_RESPONSE_KEYS = "response.keys";
@@ -57,49 +59,51 @@ public class WeatherSerivce {
 		String message = "";
 		
 		try {
-			//1- get ip address
-			//1.a- get json object
+			// 1- Get current IP address
+			// 1.a- Get json object
 			JSONObject jsonObj = createConnection(API_URL_IP, null);
-			//2.a- read data
+			// 1.b- Read data from response
 			String[] data = retreiveData(API_URL_IP, jsonObj);
 			
+			// 1.c- Retrieve IP address
 			String ip = data[0];
-			
 			weatherHistory.setIp(ip);
 			
-			//2- get location 
+			// 2- get current location based on IP address 
+			// 2.a- Get json object
 			jsonObj = createConnection(API_URL_LOCATION, data);
-			//2.a- read data
+			// 2.b- read data from response
 			data = retreiveData(API_URL_LOCATION, jsonObj);
 			
-			
+			// 2.c- Set Latitude and longitude
 			String lat = "";
 			String lon = "";
-			
 			lat = data[0];
 			lon = data[1];
-			
 			weatherHistory.setLat(lat);
 			weatherHistory.setLon(lon);
 			
-			//Add country + City
+			// 2.d- Set country and City
 			if(data.length == 4)
 			{
 				weatherHistory.setCountry(data[2]);
 				weatherHistory.setCity(data[3]);
 			}
 			
-			//3- get weather
+			// 3- Get current weather condition based on current data (lon+lat, city)
+			// 3.a- Get json object
 			jsonObj = createConnection(API_URL_WEATHER, data);
-			//2.a- read data
+			// 3.b- read data from response
 			data = retreiveData(API_URL_WEATHER, jsonObj);
 			
+			// 3.c- Set temperature
 			double temp = 0.0;
 
 			String tempUnit = env.getProperty(API_URL_WEATHER +  "." + TEMP_UNIT);
 			try {
 				temp = Double.parseDouble(data[0]);
 				
+				// 3.d- Set C or F based on the retrieved data from API
 				if(tempUnit.equalsIgnoreCase(TempUnitEnum.UINT_C.name()))
 				{
 					weatherHistory.setTempC(temp);
@@ -118,22 +122,22 @@ public class WeatherSerivce {
 				}
 				
 			} catch (NumberFormatException e) {
+				// if Temperature is invalid
 				message = "Temperature value is invalid!!";
 			}
 			
 			weatherHistory.setDate(new Date());
 			
+			// 4- Save weather history
 			saveNewHistory(weatherHistory);
 			
 			message = "Success";
-			
 		} 
 		catch(RuntimeException e)
 		{
 			message = e.getMessage();
 		}
 		catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			message = "Something went wrong!";
 		}
@@ -141,6 +145,7 @@ public class WeatherSerivce {
 		
 		Map<String, Object> map = new HashMap<String, Object>();
 		
+		//5- return information
 		map.put("message", message);
 		map.put("current_conditions", weatherHistory);
 		
@@ -149,13 +154,15 @@ public class WeatherSerivce {
 	
 	private JSONObject createConnection(String api, String[] parameters) throws RuntimeException
 	{
+		// 1- prepare URL based on URL Address
 		String urlStr = prepareURL(api, parameters);
 		
-		//Check header
+		// 2- Get API key information
 		String APIHeader = env.getProperty(api +  "." + API_KEY_HEADER);
 		String APIKey = env.getProperty(api +  "." + API_KEY);
 		String APIKeyValue = env.getProperty(api +  "." + API_KEY_VALUE);
 		
+		// 3- If API key is not in the header, append the key to URL parameters
 		if(APIHeader == null || (APIHeader != null && APIHeader.equalsIgnoreCase("no")))
 		{
 			urlStr += APIKey + "=" + APIKeyValue;
@@ -166,23 +173,26 @@ public class WeatherSerivce {
 		String result = "";
 		
 		try {
+			// 4- Open connection
 			URL url = new URL(urlStr);
 			
 			conn = (HttpURLConnection) url.openConnection();
 			conn.setRequestMethod("GET");
 			conn.setRequestProperty("Accept", "application/json");
 			
-			//add api key in header
+			// 5- If API key is in the header, add new header property with the API key
 			if(APIHeader != null && APIHeader.equalsIgnoreCase("yes"))
 			{
 				conn.setRequestProperty(APIKey, APIKeyValue);
 			}
 			
+			// 6- Check valid response
 			if (conn.getResponseCode() != 200) {
 				throw new RuntimeException("Failed : HTTP error code : "
 						+ conn.getResponseCode());
 			}
 
+			// 7- read response into String
 			br = new BufferedReader(new InputStreamReader((conn.getInputStream())));
 			
 			String output;
@@ -201,23 +211,25 @@ public class WeatherSerivce {
 			e.printStackTrace();
 		}
 
+		//8- Convert response into Json Object
 		try {
 			JSONObject jsonObject = new JSONObject(result);
 			
 			return jsonObject;
 		} catch (JSONException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
+		// return null if the response is invalid
 		return null;
 	}
 	
+	// Prepare the URL based on data stored in resource file
 	private String prepareURL(String api, String[] parameters)
 	{
 		StringBuffer sb = new StringBuffer( env.getProperty(api));
 		
-		//1- check keys
+		//1- retrieve parameters keys
 		String[] keys = env.getProperty(api + "." + API_PARAM_KEYS) != null ? 
 				env.getProperty(api +  "." + API_PARAM_KEYS).split(",") : null;
 		
@@ -231,7 +243,7 @@ public class WeatherSerivce {
 					sb.append(keys[i] + "=" + parameters[i] + "&");
 				}
 			}
-			//2.b replace values in properties file
+			//2.b if parameters list is null, then replace values stored in properties file
 			else
 			{
 				String[] values = env.getProperty(api +  "." + API_PARAM_VALUES) != null ? 
@@ -249,49 +261,49 @@ public class WeatherSerivce {
 		return sb.toString();
 	}
 	
+	// Retrieve data from Json Object
 	private String[] retreiveData(String api, JSONObject jsonObj)
 	{
 		List<String> data = new ArrayList<String>();
 		
-		//Get respose key
+		// Get response keys stored in resource file (split by ",")
 		String[] parameterKeys = env.getProperty(api +  "." + API_RESPONSE_KEYS).split(",");
 		
 		for (int i = 0; i < parameterKeys.length; i++) {
 			
+			// Parameter key path (split by ">") for example data.location.ip --> data>location>ip
 			String[] keyPath = parameterKeys[i].split(">");
 			
 			Object currentObj = jsonObj;
 			for (int j = 0; j < keyPath.length; j++) {
 				
-				//check jsonarray
+				// check if the key is json array, the value should be in the form [d]
 				if(Util.validateJsonArrayParam(keyPath[j]))
 				{
 					JSONArray array = ((JSONArray)currentObj);
 					try {
 						currentObj = array.get(Integer.parseInt(keyPath[j]));
 					} catch (NumberFormatException | JSONException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 				}
 				else
 				{
-					//check if last element
+					//check if the key last element return String
 					if((j+1) == keyPath.length)
 					{
 						try {
 							data.add( String.valueOf( ((JSONObject)currentObj).get(keyPath[j]) ));
 						} catch (JSONException e) {
-							// TODO Auto-generated catch block
 							e.printStackTrace();
 						}
 					}
+					// if the key is not last element return Json Object
 					else
 					{
 						try {
 							currentObj = ((JSONObject)currentObj).get(keyPath[j]);
 						} catch (JSONException e) {
-							// TODO Auto-generated catch block
 							e.printStackTrace();
 						}
 					}
@@ -299,35 +311,42 @@ public class WeatherSerivce {
 			}
 		}
 		
+		// return list of parameters values
 		String[] dataArray = new String[data.size()];
 		return data.toArray(dataArray);
 	}
 	
+	// Convert temp to C
 	private double convertToC(double c)
 	{
 		return (c - 32.0) * 5.0/9.0;
 	}
 	
+	// Convert temp to F
 	private double convertToF(double f)
 	{
 		return (f * 9.0/5.0) + 32.0;
 	}
 	
 	@Transactional
+	// Save weather history
 	private void saveNewHistory(WeatherHistoryBE weatherHistory) {
 		weatherHistoryDao.save(weatherHistory);
 	}
 	
+	// find weather history list by IP address
 	public List<WeatherHistoryBE> findByIP(String ip)
 	{
 		return weatherHistoryDao.findByIP(ip);
 	}
 	
+	// find weather history list by date range
 	public List<WeatherHistoryBE> findByDateRange(Date fromDate, Date toDate)
 	{
 		return weatherHistoryDao.findByDateRange(fromDate, toDate);
 	}
 	
+	// find all weather history list
 	public List<WeatherHistoryBE> findHistoryAll()
 	{
 		return weatherHistoryDao.findAll();

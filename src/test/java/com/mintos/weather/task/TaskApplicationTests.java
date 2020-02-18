@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import java.text.SimpleDateFormat;
 import java.util.List;
 
+import org.apache.tomcat.util.codec.binary.Base64;
 import org.joda.time.DateTime;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -37,32 +38,59 @@ class TaskApplicationTests {
 	@Autowired
 	private WeatherSerivce weatherSerivce;
 
+	// Simple authentication header
+	private String basicDigestHeaderValue = "Basic " + new String(Base64.encodeBase64(("admin:password").getBytes()));
+	
+	// Test /weather API
 	@Test
 	void testWeather() throws Exception {
 		MvcResult mvcResult = null;
 		try {
-			mvcResult = mockMvc.perform(get("/weather").contentType("application/json"))
+			mvcResult = mockMvc.perform(get("/weather")
+					.contentType("application/json")
+					.header("Authorization", basicDigestHeaderValue))
 					.andExpect(MockMvcResultMatchers.status().isOk()).andReturn();
 
+			// Check existing results
 			assertNotNull(mvcResult);
 			assertNotNull(mvcResult.getResponse());
 			assertNotNull(mvcResult.getResponse().getContentAsString());
 
-			assertTrue(mvcResult.getResponse().getContentAsString().contains("Temprature"));
+			JSONObject jsonObject = new JSONObject(mvcResult.getResponse().getContentAsString());
+
+			// Check message = success
+			assertTrue(jsonObject.getString("message").equalsIgnoreCase("Success"));
+			// Check current_conditions is not null
+			assertNotNull(jsonObject.getJSONObject("current_conditions"));
+			
+			JSONObject jsonObjectCurrent = jsonObject.getJSONObject("current_conditions");
+			Double tempC = jsonObjectCurrent.getDouble("tempC");
+			Double tempF = jsonObjectCurrent.getDouble("tempF");
+			
+			// Check temp is not nul
+			assertNotNull(tempC);
+			assertNotNull(tempF);
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new Exception(e);
 		}
 	}
 
+	// Test /weather/history/all
 	@Test
 	void testWeatherHistory() throws Exception {
 		MvcResult mvcResult = null;
 		try {
-			mockMvc.perform(get("/weather").contentType("application/json"))
+			// Call /weather to save some data
+			mockMvc.perform(get("/weather")
+					.contentType("application/json")
+					.header("Authorization", basicDigestHeaderValue))
 					.andExpect(MockMvcResultMatchers.status().isOk()).andReturn();
 
-			mvcResult = mockMvc.perform(get("/weather/history/all").contentType("application/json"))
+			mvcResult = mockMvc.perform(get("/weather/history/all")
+					.contentType("application/json")
+					.header("Authorization", basicDigestHeaderValue))
 					.andExpect(MockMvcResultMatchers.status().isOk()).andReturn();
 
 			assertNotNull(mvcResult);
@@ -71,6 +99,7 @@ class TaskApplicationTests {
 
 			JSONArray array = new JSONArray(mvcResult.getResponse().getContentAsString());
 
+			// check data is retrieved
 			assertTrue(array.length() > 0);
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -78,11 +107,15 @@ class TaskApplicationTests {
 		}
 	}
 
+	// Test /weather/history/byIP
 	@Test
 	void testWeatherHistoryIP() throws Exception {
 		MvcResult mvcResult = null;
 		try {
-			mockMvc.perform(get("/weather").contentType("application/json"))
+			// Call /weather to save some data
+			mockMvc.perform(get("/weather")
+					.contentType("application/json")
+					.header("Authorization", basicDigestHeaderValue))
 					.andExpect(MockMvcResultMatchers.status().isOk()).andReturn();
 
 			List<WeatherHistoryBE> list = weatherSerivce.findHistoryAll();
@@ -92,9 +125,10 @@ class TaskApplicationTests {
 
 			WeatherHistoryBE historyBE = list.get(0);
 
-			mvcResult = mockMvc
-					.perform(
-							get("/weather/history/byIP").contentType("application/json").param("ip", historyBE.getIp()))
+			mvcResult = mockMvc.perform(get("/weather/history/byIP")
+					.contentType("application/json")
+					.header("Authorization", basicDigestHeaderValue)
+					.param("ip", historyBE.getIp()))
 					.andExpect(MockMvcResultMatchers.status().isOk()).andReturn();
 
 			assertNotNull(mvcResult);
@@ -106,7 +140,7 @@ class TaskApplicationTests {
 			assertTrue(jsonObject.getString("message").equalsIgnoreCase("Success"));
 
 			JSONArray array = new JSONArray(String.valueOf(jsonObject.get("list")));
-
+			// check data is retrieved
 			assertTrue(array.length() > 0);
 
 		} catch (Exception e) {
@@ -115,12 +149,15 @@ class TaskApplicationTests {
 		}
 	}
 
+	// Test /weather/history/byIP with invalid IP address
 	@Test
 	void testWeatherHistoryIPFail() throws Exception {
 		MvcResult mvcResult = null;
 		try {
-			mvcResult = mockMvc
-					.perform(get("/weather/history/byIP").contentType("application/json").param("ip", INVALID_IP))
+			mvcResult = mockMvc.perform(get("/weather/history/byIP")
+					.contentType("application/json")
+					.header("Authorization", basicDigestHeaderValue)
+					.param("ip", INVALID_IP))
 					.andExpect(MockMvcResultMatchers.status().isOk()).andReturn();
 
 			assertNotNull(mvcResult);
@@ -137,11 +174,15 @@ class TaskApplicationTests {
 		}
 	}
 
+	// Test /weather/history/byDateRange
 	@Test
 	void testWeatherHistoryDate() throws Exception {
 		MvcResult mvcResult = null;
 		try {
-			mockMvc.perform(get("/weather").contentType("application/json"))
+			// Call /weather to save some data
+			mockMvc.perform(get("/weather")
+					.contentType("application/json")
+					.header("Authorization", basicDigestHeaderValue))
 					.andExpect(MockMvcResultMatchers.status().isOk()).andReturn();
 
 			List<WeatherHistoryBE> list = weatherSerivce.findHistoryAll();
@@ -149,14 +190,16 @@ class TaskApplicationTests {
 			assertNotNull(list);
 			assertTrue(list.size() > 0);
 
+			// Set current date
 			SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd/MM/yyy");
 			DateTime fromDate = new DateTime();
 			DateTime toDate = fromDate.plusDays(1);
 
-			mvcResult = mockMvc
-					.perform(get("/weather/history/byDateRange").contentType("application/json")
-							.param("fromDate", simpleDateFormat.format(fromDate.toDate()))
-							.param("toDate", simpleDateFormat.format(toDate.toDate())))
+			mvcResult = mockMvc.perform(get("/weather/history/byDateRange")
+					.contentType("application/json")
+					.header("Authorization", basicDigestHeaderValue)
+					.param("fromDate", simpleDateFormat.format(fromDate.toDate()))
+					.param("toDate", simpleDateFormat.format(toDate.toDate())))
 					.andExpect(MockMvcResultMatchers.status().isOk()).andReturn();
 
 			assertNotNull(mvcResult);
@@ -168,7 +211,7 @@ class TaskApplicationTests {
 			assertTrue(jsonObject.getString("message").equalsIgnoreCase("Success"));
 
 			JSONArray array = new JSONArray(String.valueOf(jsonObject.get("list")));
-
+			// check data is retrieved
 			assertTrue(array.length() > 0);
 
 		} catch (Exception e) {
@@ -177,14 +220,16 @@ class TaskApplicationTests {
 		}
 	}
 
+	// Test /weather/history/byDateRange with invalid date format
 	@Test
 	void testWeatherHistoryDateFail() throws Exception {
 		MvcResult mvcResult = null;
 		try {
 
-			mvcResult = mockMvc
-					.perform(get("/weather/history/byDateRange").contentType("application/json")
-							.param("fromDate", INVALID_DATE).param("toDate", INVALID_DATE))
+			mvcResult = mockMvc.perform(get("/weather/history/byDateRange")
+					.contentType("application/json")
+					.header("Authorization", basicDigestHeaderValue)
+					.param("fromDate", INVALID_DATE).param("toDate", INVALID_DATE))
 					.andExpect(MockMvcResultMatchers.status().isOk()).andReturn();
 
 			assertNotNull(mvcResult);

@@ -14,19 +14,31 @@ public class WeatherHistoryBE {
 	@GeneratedValue
 	@JsonIgnore
 	private Long id;
+	// IP address
 	private String ip;
+	
+	// City name
 	private String city;
+	
+	// Country name
 	private String country;
+	
+	// Latitude
 	private String lat;
+	
+	// Longitude
 	private String lon;
+	
+	// Temperature in Celsius
 	private double tempC;
+	
+	// Temperature in Fahrenheit
 	private double tempF;
 	
 	private Date date;
 	
 	public WeatherHistoryBE() {
 		super();
-		// TODO Auto-generated constructor stub
 	}
 	
 	public WeatherHistoryBE(String ip, String city, String country, String lat, String lon, double tempC, double tempF) {
