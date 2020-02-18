@@ -8,7 +8,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.transaction.Transactional;
 
@@ -49,8 +51,9 @@ public class WeatherSerivce {
 	
 	private final String TEMP_UNIT = "temp.unit";
 	
-	public String getWeather()
+	public Map<String, Object> getWeather()
 	{
+		WeatherHistoryBE weatherHistory = new WeatherHistoryBE();
 		String message = "";
 		
 		try {
@@ -62,27 +65,28 @@ public class WeatherSerivce {
 			
 			String ip = data[0];
 			
-			message += "You IP Address = " + ip;
+			weatherHistory.setIp(ip);
 			
 			//2- get location 
 			jsonObj = createConnection(API_URL_LOCATION, data);
 			//2.a- read data
 			data = retreiveData(API_URL_LOCATION, jsonObj);
 			
-			String country ="";
-			String city = "";
+			
 			String lat = "";
 			String lon = "";
 			
 			lat = data[0];
 			lon = data[1];
 			
+			weatherHistory.setLat(lat);
+			weatherHistory.setLon(lon);
+			
 			//Add country + City
 			if(data.length == 4)
 			{
-				message += "<br/>Country = " + data[2] + " - City = " + data[3] + "<br/>";
-				country = data[2];
-				city = data[3];
+				weatherHistory.setCountry(data[2]);
+				weatherHistory.setCity(data[3]);
 			}
 			
 			//3- get weather
@@ -91,26 +95,37 @@ public class WeatherSerivce {
 			data = retreiveData(API_URL_WEATHER, jsonObj);
 			
 			double temp = 0.0;
+
 			String tempUnit = env.getProperty(API_URL_WEATHER +  "." + TEMP_UNIT);
 			try {
 				temp = Double.parseDouble(data[0]);
 				
 				if(tempUnit.equalsIgnoreCase(TempUnitEnum.UINT_C.name()))
 				{
-					message += "Temprature in C = " + Math.round(temp);
-					message += "<br>Temprature in F = " + Math.round(convertToF(temp));
+					weatherHistory.setTempC(temp);
+					weatherHistory.setTempC(temp);
+					
+					weatherHistory.setTempF(Math.round(convertToF(temp)));
+					weatherHistory.setTempF(Math.round(convertToF(temp)));
 				}
 				else
 				{
-					message += "Temprature in C = " + Math.round(convertToC(temp));
-					message += "<br>Temprature in F = " + Math.round(temp);
+					weatherHistory.setTempC(Math.round(convertToC(temp)));
+					weatherHistory.setTempC(Math.round(convertToF(temp)));
+					
+					weatherHistory.setTempF(Math.round(temp));
+					weatherHistory.setTempF(temp);
 				}
 				
 			} catch (NumberFormatException e) {
 				message = "Temperature value is invalid!!";
 			}
 			
-			saveNewHistory(ip, city, country, lat, lon, temp, tempUnit);
+			weatherHistory.setDate(new Date());
+			
+			saveNewHistory(weatherHistory);
+			
+			message = "Success";
 			
 		} 
 		catch(RuntimeException e)
@@ -124,7 +139,12 @@ public class WeatherSerivce {
 		}
 		
 		
-		return message;
+		Map<String, Object> map = new HashMap<String, Object>();
+		
+		map.put("message", message);
+		map.put("current_conditions", weatherHistory);
+		
+		return map;
 	}
 	
 	private JSONObject createConnection(String api, String[] parameters) throws RuntimeException
@@ -294,10 +314,7 @@ public class WeatherSerivce {
 	}
 	
 	@Transactional
-	private void saveNewHistory(String ip, String city, String country, String lat, String lon, double temp, String tempUnit) {
-		
-		WeatherHistoryBE weatherHistory = new WeatherHistoryBE(ip, city, country, lat, lon, temp, tempUnit);
-		
+	private void saveNewHistory(WeatherHistoryBE weatherHistory) {
 		weatherHistoryDao.save(weatherHistory);
 	}
 	

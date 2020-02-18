@@ -6,18 +6,22 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 @Entity(name = "Weather_History")
 public class WeatherHistoryBE {
 	@Id
 	@GeneratedValue
+	@JsonIgnore
 	private Long id;
 	private String ip;
 	private String city;
 	private String country;
 	private String lat;
 	private String lon;
-	private double temp;
-	private String unit;
+	private double tempC;
+	private double tempF;
+	
 	private Date date;
 	
 	public WeatherHistoryBE() {
@@ -25,13 +29,13 @@ public class WeatherHistoryBE {
 		// TODO Auto-generated constructor stub
 	}
 	
-	public WeatherHistoryBE(String ip, String city, String country, String lat, String lon, double temp, String unit) {
+	public WeatherHistoryBE(String ip, String city, String country, String lat, String lon, double tempC, double tempF) {
 		super();
 		this.ip = ip;
 		this.city = city;
 		this.country = country;
-		this.temp = temp;
-		this.unit = unit;
+		this.tempC = tempC;
+		this.tempF = tempF;
 		this.lat = lat;
 		this.lon = lon;
 		this.date = new Date();
@@ -69,22 +73,6 @@ public class WeatherHistoryBE {
 		this.country = country;
 	}
 
-	public double getTemp() {
-		return temp;
-	}
-
-	public void setTemp(double temp) {
-		this.temp = temp;
-	}
-
-	public String getUnit() {
-		return unit;
-	}
-
-	public void setUnit(String unit) {
-		this.unit = unit;
-	}
-
 	public Date getDate() {
 		return date;
 	}
@@ -108,5 +96,20 @@ public class WeatherHistoryBE {
 	public void setLon(String lon) {
 		this.lon = lon;
 	}
-	
+
+	public double getTempC() {
+		return tempC;
+	}
+
+	public void setTempC(double tempC) {
+		this.tempC = tempC;
+	}
+
+	public double getTempF() {
+		return tempF;
+	}
+
+	public void setTempF(double tempF) {
+		this.tempF = tempF;
+	}
 }

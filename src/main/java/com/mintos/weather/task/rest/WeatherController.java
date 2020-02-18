@@ -23,7 +23,7 @@ public class WeatherController {
 	
 	@RequestMapping(method = RequestMethod.GET, value="/weather")
 	@ResponseBody
-	public String getWeather()
+	public Map<String, Object> getWeather()
 	{
 		return weatherService.getWeather();
 	}
